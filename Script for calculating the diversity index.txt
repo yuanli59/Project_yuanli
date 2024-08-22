@@ -1,0 +1,26 @@
+# read Fasta
+fasta_file = "/path/to/some.fasta"
+sequences = parse_fasta(fasta_file)
+
+# calculate frenquency
+seq_counts = Counter(sequences)
+total_sequences = sum(seq_counts.values())
+
+# calculate shannon
+relative_frequencies = {seq: count / total_sequences for seq, count in seq_counts.items()}
+shannon_index = -sum(p * np.log(p) for p in relative_frequencies.values())
+
+# Simpson
+simpson_index = 1 - sum((count / total_sequences) ** 2 for count in seq_counts.values())
+
+# Chao1
+S_obs = len(seq_counts)
+F1 = sum(1 for count in seq_counts.values() if count == 1)
+F2 = sum(1 for count in seq_counts.values() if count == 2)
+
+if F2 > 0:
+    chao1 = S_obs + (F1 ** 2) / (2 * F2)
+else:
+    chao1 = S_obs
+
+shannon_index, simpson_index, chao1

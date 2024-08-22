@@ -1,0 +1,68 @@
+#Data extract
+dos2unix mgid.txt
+ls -d /mbl/share/workspaces/groups/voglerlab/MMGdatabase/gbmaster_2024-04-20/* | grep -Ff /home/yuanl/mgid.txt | xargs cat > /home/yuanl/mgid.gb
+
+#Data processing
+
+python3 -m pip install --upgrade pip
+pip install biopython            
+git clone https://github.com/tjcreedy/biotools.git
+git clone https://github.com/nylander/catfasta2phyml.git
+
+# GENE EXTRACTION
+
+mkdir 1_nt_raw
+extract_genes.py -g yourmitogenomefile.gb -o 1_nt_raw/ -k --genetypes CDS
+
+# TRANSLATION
+
+mkdir 2_aa_raw
+for file in 1_nt_raw/*
+do
+   translate.py 5 < $file > 2_aa_raw/${file#*/}
+done
+
+# ALIGNMENT
+
+mkdir 3_aa_aln
+for file in 2_aa_raw/*
+do
+   mafft --globalpair --maxiterate 1000 --anysymbol --thread 10 $file > 3_aa_aln/${file#*/}
+done
+
+# BACKTRANSLATION
+
+mkdir 4_nt_aln
+for file in 3_aa_aln/*
+do
+   backtranslate.py -i $file 1_nt_raw/${file#*/} 5 > 4_nt_aln/${file#*/}
+done
+
+# Nucleotide supermatrix
+
+catfasta2phyml.pl -c -fasta 4_nt_aln/* > 5_nt_supermatrix.fasta 2> 5_nt_partitions.txt
+
+# Running RAxML on codon12 dataset
+
+https://teams.microsoft.com/l/message/19:154ea2386ddf487b9266a5b04800d0b2@thread.tacv2/1720112811639?tenantId=73a29c01-4e78-437f-a0d4-c8553e1960c1&groupId=73759fd2-021e-47d4-8cd4-98c8c2666e18&parentMessageId=1720112811639&teamName=Vogler%20Lab&channelName=Bioinformatics%20coding%20help%20and%20advice&createdTime=1720112811639
+
+#The data processing code is detailed in https://github.com/tjcreedy/pipelines/blob/master/alignment_and_phylogeny
+
+
+# Built tree
+
+raxmlHPC -f a -T 72 -m GTRCAT -p 123 -s /path/to/supermatrix.fasta -n mitogenometree -g /path/to/backbone.tree -N 10 -x 12345
+
+#sequences align
+
+mafft --thread 10 --addfragments barcodeASV.fasta --6merpair mitogenomeCOX1.fasta > output.fasta
+
+#Cluster
+
+brew install wget
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+bash Miniconda3-latest-MacOSX-x86_64.sh                                    
+conda activate qiime2-amplicon-2024.5
+vsearch --cluster_fast 4k.fasta --id 0.97 --centroids centroids.fasta --uc clusters1.uc --threads 4
+
+
